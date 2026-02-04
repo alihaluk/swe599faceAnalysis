@@ -12,6 +12,10 @@ enum GameState {
     GameStateLost
 };
 
+struct NormalizedRect {
+    float x, y, width, height;
+};
+
 class GameLogic {
 private:
     GameState currentState;
@@ -20,6 +24,9 @@ private:
 
     const double TOTAL_GAME_TIME = 30.0;
     const double MAX_LOST_TIME = 3.0;
+
+    // Target zone definition (normalized coordinates)
+    const NormalizedRect TARGET_ZONE = {0.3f, 0.2f, 0.4f, 0.6f}; // x:[0.3, 0.7], y:[0.2, 0.8]
 
 public:
     GameLogic() {
@@ -34,12 +41,31 @@ public:
         timeWithoutFace = 0;
     }
 
-    void update(double dt, bool faceDetected) {
+    // Update with face properties (normalized 0.0-1.0)
+    // Pass -1.0 for all if no face detected
+    void update(double dt, float x, float y, float width, float height) {
         if (currentState != GameStatePlaying) return;
 
         remainingTime -= dt;
 
-        if (faceDetected) {
+        bool faceValid = false;
+
+        // Check if face is detected (values >= 0)
+        if (x >= 0 && y >= 0) {
+            // Calculate center of the face
+            float cx = x + width / 2.0f;
+            float cy = y + height / 2.0f;
+
+            // Check if center is within target zone
+            bool insideX = (cx >= TARGET_ZONE.x) && (cx <= (TARGET_ZONE.x + TARGET_ZONE.width));
+            bool insideY = (cy >= TARGET_ZONE.y) && (cy <= (TARGET_ZONE.y + TARGET_ZONE.height));
+
+            if (insideX && insideY) {
+                faceValid = true;
+            }
+        }
+
+        if (faceValid) {
             timeWithoutFace = 0;
         } else {
             timeWithoutFace += dt;
@@ -66,7 +92,9 @@ public:
     std::string getStatusString() const {
         switch (currentState) {
             case GameStateIdle: return "Press Start";
-            case GameStatePlaying: return "Keep Face in Box!";
+            case GameStatePlaying:
+                if (timeWithoutFace > 0) return "Move Face to Center!";
+                return "Hold Steady!";
             case GameStateWon: return "YOU WIN!";
             case GameStateLost: return "GAME OVER";
         }
@@ -84,6 +112,20 @@ public:
             case GameStateWon: r=0; g=255; b=0; break;
             case GameStateLost: r=255; g=0; b=0; break;
         }
+    }
+
+    // Returns danger level from 0.0 (safe) to 1.0 (lost)
+    float getDangerLevel() const {
+        if (currentState != GameStatePlaying) return 0.0f;
+        float level = (float)(timeWithoutFace / MAX_LOST_TIME);
+        if (level > 1.0f) level = 1.0f;
+        if (level < 0.0f) level = 0.0f;
+        return level;
+    }
+
+    // Returns the target zone definition
+    NormalizedRect getTargetZone() const {
+        return TARGET_ZONE;
     }
 };
 
