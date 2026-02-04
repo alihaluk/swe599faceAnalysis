@@ -19,10 +19,10 @@ struct NormalizedRect {
 class GameLogic {
 private:
     GameState currentState;
-    double remainingTime;
+    double shaveProgress; // 0.0 to 1.0
     double timeWithoutFace;
 
-    const double TOTAL_GAME_TIME = 30.0;
+    const double REQUIRED_SHAVE_TIME = 10.0; // Shaving takes 10 seconds of valid contact
     const double MAX_LOST_TIME = 3.0;
 
     // Target zone definition (normalized coordinates)
@@ -31,13 +31,13 @@ private:
 public:
     GameLogic() {
         currentState = GameStateIdle;
-        remainingTime = TOTAL_GAME_TIME;
+        shaveProgress = 0.0;
         timeWithoutFace = 0;
     }
 
     void start() {
         currentState = GameStatePlaying;
-        remainingTime = TOTAL_GAME_TIME;
+        shaveProgress = 0.0;
         timeWithoutFace = 0;
     }
 
@@ -45,8 +45,6 @@ public:
     // Pass -1.0 for all if no face detected
     void update(double dt, float x, float y, float width, float height) {
         if (currentState != GameStatePlaying) return;
-
-        remainingTime -= dt;
 
         bool faceValid = false;
 
@@ -67,15 +65,17 @@ public:
 
         if (faceValid) {
             timeWithoutFace = 0;
+            // Increment progress
+            shaveProgress += dt / REQUIRED_SHAVE_TIME;
+            if (shaveProgress >= 1.0) {
+                shaveProgress = 1.0;
+                currentState = GameStateWon;
+            }
         } else {
             timeWithoutFace += dt;
-        }
-
-        if (remainingTime <= 0) {
-            currentState = GameStateWon;
-            remainingTime = 0;
-        } else if (timeWithoutFace >= MAX_LOST_TIME) {
-            currentState = GameStateLost;
+            if (timeWithoutFace >= MAX_LOST_TIME) {
+                currentState = GameStateLost;
+            }
         }
     }
 
@@ -83,10 +83,9 @@ public:
         return currentState;
     }
 
-    std::string getTimeString() const {
-        std::stringstream ss;
-        ss << std::fixed << std::setprecision(1) << remainingTime;
-        return ss.str();
+    // Returns progress 0.0 to 1.0
+    float getShaveProgress() const {
+        return (float)shaveProgress;
     }
 
     std::string getStatusString() const {
@@ -94,8 +93,8 @@ public:
             case GameStateIdle: return "Press Start";
             case GameStatePlaying:
                 if (timeWithoutFace > 0) return "Move Face to Center!";
-                return "Hold Steady!";
-            case GameStateWon: return "YOU WIN!";
+                return "Shaving...";
+            case GameStateWon: return "CLEAN SHAVE!";
             case GameStateLost: return "GAME OVER";
         }
         return "";
