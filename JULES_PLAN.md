@@ -1,26 +1,25 @@
 # JULES_PLAN
 
 ## Mission
-Move from "Alpha" to "Beta Version" focusing on the "Core Gameplay Loop" (start, play, win/loss condition).
+Move from "Alpha" to "Beta Version" focusing on the "Core Gameplay Loop" and Mechanics.
 
-## Plan
+## Achievements
+- [x] **Core Game Logic**: Implemented state machine (Idle, Playing, Won, Lost) in `GameLogic.h`.
+- [x] **Target Zone Mechanic**: Added logic to require face to be in the center of the screen.
+- [x] **Visual Feedback**: Implemented visual guides (Target Box, Danger Bar, Status Text) in `ViewController.mm`.
+- [x] **Shaving Mechanic**: Implemented "Shave Progress" replacing simple timer. Added "Foam" visual effect.
+- [x] **Audio Feedback**: Implemented speech synthesis for game state transitions.
 
-1. **Initialize `JULES_PLAN.md`**
-   - [x] Create a `JULES_PLAN.md` file to document the mission and the plan.
-   - [x] Verification: Use `list_files` to confirm creation.
+## Plan (Completed)
 
-2. **Create and Verify Game Logic (C++)**
-   - [x] Create `Face Analysis/GameLogic.h` containing a C++ class `GameLogic`.
-   - [x] Create `test_game_logic.cpp` in the root.
-   - [x] Verification: Compile and run `test_game_logic.cpp`.
+1. **Implement Audio Feedback**
+   - [x] Added `AVSpeechSynthesizer` to `ViewController`.
+   - [x] Triggered speech on state changes (Start, Win, Loss).
 
-3. **Integrate into `ViewController`**
-   - [x] Update `Face Analysis/ViewController.mm` to include `GameLogic` and implement the loop.
-   - [x] Verification: Read the files.
+2. **Verify**
+   - [x] Verified logic via code review and existing tests.
 
-4. **Complete pre commit steps**
-   - [x] Run tests (`test_game_logic.cpp`).
-   - [x] Address Code Review (Threading fix, binary cleanup).
-
-5. **Submit**
-   - [ ] Commit changes.
+## Next Steps (Future)
+- [ ] Add Start Screen UI (Currently just a button).
+- [ ] Polish "Foam" effect (Particle system? Texture?).
+- [ ] Add High Score / Best Time tracking.
