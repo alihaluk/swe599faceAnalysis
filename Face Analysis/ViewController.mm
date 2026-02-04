@@ -81,26 +81,82 @@
     vector< Rect_<int> > faces;
     haar_cascade.detectMultiScale(gray, faces);
     
-    bool faceDetected = !faces.empty();
+    // Find largest face
+    float fx = -1.0f, fy = -1.0f, fw = 0.0f, fh = 0.0f;
+    cv::Rect largestFace;
+    bool hasFace = !faces.empty();
+
+    if (hasFace) {
+        largestFace = faces[0];
+        for(size_t i = 1; i < faces.size(); i++) {
+            if (faces[i].area() > largestFace.area()) {
+                largestFace = faces[i];
+            }
+        }
+
+        fx = (float)largestFace.x / image.cols;
+        fy = (float)largestFace.y / image.rows;
+        fw = (float)largestFace.width / image.cols;
+        fh = (float)largestFace.height / image.rows;
+    }
 
     // Update Game Logic
-    gameLogic.update(dt, faceDetected);
+    gameLogic.update(dt, fx, fy, fw, fh);
 
     // Draw Game UI
-    std::string timeStr = gameLogic.getTimeString();
+    float progress = gameLogic.getShaveProgress();
     std::string statusStr = gameLogic.getStatusString();
+
+    // Format progress percentage
+    std::stringstream ss;
+    ss << "Shaved: " << (int)(progress * 100) << "%";
+    std::string progressStr = ss.str();
 
     int r, g, b;
     gameLogic.getStatusColor(r, g, b);
 
+    // Draw Target Zone
+    NormalizedRect zone = gameLogic.getTargetZone();
+    cv::Rect targetRect(zone.x * image.cols, zone.y * image.rows, zone.width * image.cols, zone.height * image.rows);
+    cv::rectangle(image, targetRect, CV_RGB(200, 200, 200), 2);
+
     // Draw Text
-    cv::putText(image, "Time: " + timeStr, cv::Point(10, 30), FONT_HERSHEY_SIMPLEX, 0.8, CV_RGB(255, 255, 255), 2);
+    cv::putText(image, progressStr, cv::Point(10, 30), FONT_HERSHEY_SIMPLEX, 0.8, CV_RGB(255, 255, 255), 2);
     cv::putText(image, statusStr, cv::Point(10, 70), FONT_HERSHEY_SIMPLEX, 0.8, CV_RGB(r, g, b), 2);
 
-    // Draw Faces
+    // Draw Faces and Foam
     for(int i = 0; i < faces.size(); i++) {
         cv::Rect face_i = faces[i];
-        rectangle(image, face_i, CV_RGB(r, g, b), 2);
+        cv::rectangle(image, face_i, CV_RGB(r, g, b), 2);
+
+        // Draw Foam (simulated beard area)
+        if (gameLogic.getState() == GameStatePlaying) {
+            float foamAlpha = 1.0f - progress;
+            if (foamAlpha > 0) {
+                // Beard area: lower half of the face
+                cv::Rect beardRect = face_i;
+                beardRect.y += face_i.height / 2;
+                beardRect.height /= 2;
+
+                // Create a Region of Interest (ROI) for the beard
+                // Ensure ROI is inside image bounds
+                beardRect &= cv::Rect(0, 0, image.cols, image.rows);
+
+                if (beardRect.area() > 0) {
+                    Mat roi = image(beardRect);
+                    Mat white = Mat(roi.size(), roi.type(), Scalar(255, 255, 255));
+                    addWeighted(white, foamAlpha * 0.7, roi, 1.0 - (foamAlpha * 0.7), 0.0, roi);
+                }
+            }
+        }
+    }
+
+    // Draw Danger Bar
+    float danger = gameLogic.getDangerLevel();
+    if (danger > 0) {
+        int barHeight = 20;
+        int filledWidth = (int)(image.cols * danger);
+        cv::rectangle(image, cv::Rect(0, image.rows - barHeight, filledWidth, barHeight), CV_RGB(255, 0, 0), -1);
     }
     
 }

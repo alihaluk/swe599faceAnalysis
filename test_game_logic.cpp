@@ -1,10 +1,12 @@
 #include <iostream>
 #include <cassert>
+#include <cmath>
 #include "Face Analysis/GameLogic.h"
 
 void test_initial_state() {
     GameLogic game;
     assert(game.getState() == GameStateIdle);
+    assert(game.getShaveProgress() == 0.0f);
     std::cout << "test_initial_state passed" << std::endl;
 }
 
@@ -13,18 +15,19 @@ void test_win_condition() {
     game.start();
     assert(game.getState() == GameStatePlaying);
 
-    // Simulate 30 seconds with face detected
-    for (int i = 0; i < 300; ++i) { // 300 steps of 0.1s
-        game.update(0.1, true);
+    // Simulate 10 seconds (REQUIRED_SHAVE_TIME) with face detected in center
+    // dt = 0.1s. 10s / 0.1s = 100 steps.
+    for (int i = 0; i < 100; ++i) {
+        game.update(0.1, 0.4, 0.4, 0.2, 0.2);
     }
 
-    // It might be exactly 0 or slightly less, check state
     if (game.getState() != GameStateWon) {
-        // Update one more time to be sure
-        game.update(0.1, true);
+        // Just in case of float precision issues
+        game.update(0.1, 0.4, 0.4, 0.2, 0.2);
     }
 
     assert(game.getState() == GameStateWon);
+    assert(game.getShaveProgress() >= 1.0f);
     std::cout << "test_win_condition passed" << std::endl;
 }
 
@@ -32,44 +35,46 @@ void test_loss_condition() {
     GameLogic game;
     game.start();
 
-    // Simulate 3 seconds without face
+    // Simulate 3 seconds without face (pass -1)
     for (int i = 0; i < 30; ++i) { // 30 steps of 0.1s
-        game.update(0.1, false);
+        game.update(0.1, -1.0, -1.0, 0.0, 0.0);
     }
 
-    // Should be lost or about to be
-     if (game.getState() != GameStateLost) {
-        game.update(0.1, false);
+    if (game.getState() != GameStateLost) {
+        game.update(0.1, -1.0, -1.0, 0.0, 0.0);
     }
 
     assert(game.getState() == GameStateLost);
     std::cout << "test_loss_condition passed" << std::endl;
 }
 
-void test_recovery() {
+void test_progress_accumulation() {
     GameLogic game;
     game.start();
 
-    // 2 seconds without face
-    game.update(2.0, false);
-    assert(game.getState() == GameStatePlaying);
+    // 1 second of shaving (should be 10% progress)
+    for(int i=0; i<10; i++) {
+        game.update(0.1, 0.4, 0.4, 0.2, 0.2);
+    }
 
-    // Face comes back
-    game.update(0.1, true);
-    assert(game.getState() == GameStatePlaying);
+    float p = game.getShaveProgress();
+    assert(p > 0.09f && p < 0.11f);
 
-    // 2 more seconds without face (should reset counter)
-    game.update(2.0, false);
-    assert(game.getState() == GameStatePlaying);
+    // 1 second lost (progress shouldn't change)
+    for(int i=0; i<10; i++) {
+        game.update(0.1, -1.0, -1.0, 0.0, 0.0);
+    }
 
-    std::cout << "test_recovery passed" << std::endl;
+    assert(game.getShaveProgress() == p); // Should remain same
+
+    std::cout << "test_progress_accumulation passed" << std::endl;
 }
 
 int main() {
     test_initial_state();
     test_win_condition();
     test_loss_condition();
-    test_recovery();
+    test_progress_accumulation();
     std::cout << "All tests passed!" << std::endl;
     return 0;
 }
